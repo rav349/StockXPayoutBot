@@ -15,6 +15,7 @@ namespace StockX
         private static CookieContainer cookies = new CookieContainer();
         private static HttpClientHandler handler = new HttpClientHandler();
         private static List<string> urls = new List<string>();
+        private static string currentShoe = "";
 
 
         class Shoe
@@ -49,7 +50,9 @@ namespace StockX
             handler.CookieContainer = cookies;
             handler.AllowAutoRedirect = true;
             HttpClient client = new HttpClient(handler);
+            //CreateEmptyFile("test");
 
+            //Console.ReadLine();
             var email = "rav349@gmail.com";
             var password = "120522760";
             GetUrls();
@@ -132,6 +135,8 @@ namespace StockX
                 JObject product = JObject.Parse(responseString);
 
                 var title = product["Product"]["title"];
+                CreateEmptyFile(title.ToString());
+                currentShoe = title.ToString();
                 Console.WriteLine(String.Format($"{DateTime.Now.ToString("hh:mm:ss.fff")}: Getting info for {title}"));
 
                 foreach (var c in product["Product"]["children"])
@@ -156,6 +161,7 @@ namespace StockX
         private static async Task CheckPayoutAsync(List<Shoe> input, HttpClient client)
         {
             //List < KeyValuePair<string, int> > payouts = new List<KeyValuePair<string, int>>();
+            //var csv = new StringBuilder();
             foreach (Shoe shoe in input)
             {
                 try
@@ -181,6 +187,8 @@ namespace StockX
 
                         double payoutDouble = Math.Round(double.Parse(jsonResult["total"].ToString()), 2);
                         shoe.payout = payoutDouble.ToString();
+                        //var newline = string.Format($"{shoe.size},{shoe.payout}");
+                        //csv.Append(newline);
                     }
                     else
                     {
@@ -193,10 +201,23 @@ namespace StockX
 
 
             }
+            //File.WriteAllText(Directory.GetCurrentDirectory(), csv.ToString());
+
             foreach (Shoe s in input)
             {
+
                 Console.WriteLine(String.Format($"Size: {s.size} \tHighest Bid: {s.highestBid} \tSize ID: {s.sizeID} \tPAYOUT: {s.payout}"));
             }
+
+            using (StreamWriter file = new System.IO.StreamWriter(String.Format($"{Directory.GetCurrentDirectory()}\\{currentShoe}")))
+            {
+                foreach (Shoe s in input)
+                {
+                    file.WriteLine(String.Format($"{s.size}: {s.payout}"));
+                }
+            }
+
+
         }
 
         private static void GetCookies(string url)
@@ -212,7 +233,10 @@ namespace StockX
             var plainTextBytes = System.Text.Encoding.UTF8.GetBytes(plainText);
             return System.Convert.ToBase64String(plainTextBytes);
         }
-
+        public static void CreateEmptyFile(string filename)
+        {
+            File.Create(filename).Dispose();
+        }
 
     }
 }
