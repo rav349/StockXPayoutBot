@@ -20,13 +20,14 @@ namespace StockX
 
         class Shoe
         {
-            public Shoe(string size, string sizeID, string highestBid, string lowestAsk, string payout)
+            public Shoe(string size, string sizeID, string highestBid, string lowestAsk, string payout,string name)
             {
                 this.size = size;
                 this.sizeID = sizeID;
                 this.highestBid = highestBid;
                 this.lowestAsk = lowestAsk;
                 this.payout = payout;
+                this.name = name;
             }
 
             public string size { get; set; }
@@ -34,12 +35,31 @@ namespace StockX
             public string highestBid { get; set; }
             public string lowestAsk { get; set; }
             public string payout { get; set; }
+            public string name { get; set; }
+        }
+
+        class ShoeLookup
+        {
+            public ShoeLookup()
+            {
+            }
+
+            public ShoeLookup(string url, string[] sizes)
+            {
+                Url = url;
+                Sizes = sizes;
+
+            }
+
+            public string Url { get; set; }
+            public string[] Sizes { get; set; }
         }
 
         static void Main(string[] args)
         {
             var prog = new Program();
             prog.MainAsync().Wait();
+            Console.WriteLine("Done");
             Console.ReadLine();
         }
 
@@ -55,14 +75,14 @@ namespace StockX
             //Console.ReadLine();
             var email = "rav349@gmail.com";
             var password = "120522760";
-            GetUrls();
-            //bool LoggedIn = await LoginAsync(email, password, client);
-            bool LoggedIn = true;
+            List<ShoeLookup> shoeLookups = GetUrls();
+            bool LoggedIn = await LoginAsync(email, password, client);
+            //bool LoggedIn = true;
             if (LoggedIn)
             {
-                foreach(string url in urls)
+                foreach (ShoeLookup shoeLookup in shoeLookups)
                 {
-                    var ShoesList = await GetProductInfo(url, client);
+                    var ShoesList = await GetProductInfo(shoeLookup.Url, shoeLookup.Sizes, client);
                     await CheckPayoutAsync(ShoesList, client);
                 }
 
@@ -70,11 +90,11 @@ namespace StockX
         }
 
 
-        private void GetUrls()
+        private static List<ShoeLookup> GetUrls()
         {
+            List<ShoeLookup> shoeLookups = new List<ShoeLookup>();
             string line = "";
             string accountsPath = Directory.GetCurrentDirectory() + "\\urls.txt";
-            //Console.WriteLine("Trying to find accounts file at " + accountsPath);
             StreamReader file = new StreamReader(accountsPath);
             if (urls.Count != 0)
             {
@@ -82,18 +102,43 @@ namespace StockX
             }
             while ((line = file.ReadLine()) != null)
             {
-                urls.Add(line);
-                Console.WriteLine(String.Format($"{DateTime.Now.ToString("hh:mm:ss.fff")}: Added {line}"));
+                ShoeLookup shoeLookup = new ShoeLookup();
+                if(line.Contains(' ') & line.Contains(','))
+                {
+                    var split = line.Split(' ');
+
+                    //add "/products/api' and '?includes=market' to link
+                    var url = split[0];
+                    url = url.Split(new[] { "https://stockx.com/" }, StringSplitOptions.None)[1];
+                    url = "https://stockx.com/api/products/" + url + "?includes=market";
+                    shoeLookup.Url = url;
+
+                    var sizesString = split[1];
+                    var sizes = sizesString.Split(',');
+                    shoeLookup.Sizes = sizes;
+                    shoeLookups.Add(shoeLookup);
+                } else
+                {
+                    line = line.Split(new[] { "https://stockx.com/" }, StringSplitOptions.None)[1];
+                    line = "https://stockx.com/api/products/" + line + "?includes=market";
+                    shoeLookup.Url = line;
+                    shoeLookup.Sizes = null;
+                    shoeLookups.Add(shoeLookup);
+                }
+
+                //Console.WriteLine(String.Format($"URL: {shoeLookup.Url}\nSizes: {shoeLookup.Sizes.Length}\n"));
             }
 
             file.Close();
-            if (urls.Count() == 0)
+            if (shoeLookups.Count() == 0)
             {
                 Console.WriteLine("No URLs found in urls.txt");
-                return;
+                return null;
             }
+            //Console.ReadLine();
+            return shoeLookups;
         }
-
+    
         private static async Task<bool> LoginAsync(string email, string password, HttpClient client)
         {
             JObject loginData = new JObject(new JProperty("email", email), new JProperty("password", password));
@@ -120,14 +165,10 @@ namespace StockX
             }
         }
 
-        private static async Task<List<Shoe>> GetProductInfo(string url, HttpClient client)
+        private static async Task<List<Shoe>> GetProductInfo(string url, string[] sizes, HttpClient client)
         {
             List<Shoe> ShoesList = new List<Shoe>();
 
-            if (!url.Contains("?includes=market"))
-            {
-                url = url + "?includes=market";
-            }
             var response = await client.GetAsync(url);
             var responseString = await response.Content.ReadAsStringAsync();
             if (response.IsSuccessStatusCode)
@@ -149,11 +190,27 @@ namespace StockX
                     var lowestAsk = market["lowestAsk"];
                     var highestBid = market["highestBid"];
                     var sizeID = market["skuUuid"];
+                    if(sizes == null)
+                    {
+                        ShoesList.Add(new Shoe(size.ToString(), sizeID.ToString(), highestBid.ToString(), lowestAsk.ToString(), null, title.ToString()));
+                    } else
+                    {
+                        foreach (string s in sizes)
+                        {
+                            if (size.ToString() == s)
+                            {
+                                ShoesList.Add(new Shoe(size.ToString(), sizeID.ToString(), highestBid.ToString(), lowestAsk.ToString(), null, title.ToString()));
 
-                    ShoesList.Add(new Shoe(size.ToString(), sizeID.ToString(), highestBid.ToString(), lowestAsk.ToString(), null));
+                            }
+                        }
+                    }
+
                 }
 
                 //Console.WriteLine(String.Format($"Size: {size} \tLowest Ask: {lowestAsk} \tHighest Bid: {highestBid} \tSize ID: {sizeID}"));
+            } else
+            {
+                Console.WriteLine(responseString);
             }
             return ShoesList;
         }
@@ -209,13 +266,17 @@ namespace StockX
                 Console.WriteLine(String.Format($"Size: {s.size} \tHighest Bid: {s.highestBid} \tSize ID: {s.sizeID} \tPAYOUT: {s.payout}"));
             }
 
-            using (StreamWriter file = new System.IO.StreamWriter(String.Format($"{Directory.GetCurrentDirectory()}\\{currentShoe}")))
+            using (StreamWriter file = new StreamWriter(String.Format($"{Directory.GetCurrentDirectory()}\\{currentShoe}",true)))
             {
+                //file.Close();
                 foreach (Shoe s in input)
                 {
                     file.WriteLine(String.Format($"{s.size}: {s.payout}"));
                 }
+
+                file.Close();
             }
+
 
 
         }
