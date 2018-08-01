@@ -14,7 +14,6 @@ namespace StockX
     {
         private static CookieContainer cookies = new CookieContainer();
         private static HttpClientHandler handler = new HttpClientHandler();
-        private static List<string> urls = new List<string>();
         private static string currentShoe = "";
 
 
@@ -75,7 +74,7 @@ namespace StockX
             //Console.ReadLine();
             var email = "rav349@gmail.com";
             var password = "120522760";
-            List<ShoeLookup> shoeLookups = GetUrls();
+            List<ShoeLookup> shoeLookups = await GetUrlsAsync(client);
             bool LoggedIn = await LoginAsync(email, password, client);
             //bool LoggedIn = true;
             if (LoggedIn)
@@ -90,20 +89,54 @@ namespace StockX
         }
 
 
-        private static List<ShoeLookup> GetUrls()
+        private static async Task<List<ShoeLookup>> GetUrlsAsync(HttpClient client)
         {
             List<ShoeLookup> shoeLookups = new List<ShoeLookup>();
             string line = "";
             string accountsPath = Directory.GetCurrentDirectory() + "\\urls.txt";
             StreamReader file = new StreamReader(accountsPath);
-            if (urls.Count != 0)
-            {
-                urls.Clear();
-            }
+            Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Found input file"));
             while ((line = file.ReadLine()) != null)
             {
                 ShoeLookup shoeLookup = new ShoeLookup();
-                if(line.Contains(' ') & line.Contains(','))
+                if (!line.Contains("https://stockx.com/"))
+                {
+                    //SKU Lookup
+                    var split = line.Split(' ');
+                    var sku = split[0];
+                    var lookupUrl = "https://xw7sbct9v6-dsn.algolia.net/1/indexes/products/query";
+                    JObject json = new JObject(new JProperty("params", "query={"+sku+"}&hitsPerPage=100"));
+                    var content = new StringContent(json.ToString(), Encoding.UTF8, "application/json");
+                    client.DefaultRequestHeaders.Add("x-algolia-agent", "Algolia for vanilla JavaScript 3.27.1");
+                    client.DefaultRequestHeaders.Add("x-algolia-api-key", "6bfb5abee4dcd8cea8f0ca1ca085c2b3");
+                    client.DefaultRequestHeaders.Add("x-algolia-application-id", "XW7SBCT9V6");
+                    //client.DefaultRequestHeaders.Add("x-algolia-agent", "Algolia for vanilla JavaScript 3.27.1");
+
+                    //Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Searching for {sku}"));
+
+                    var response = await client.PostAsync(lookupUrl, content);
+                    var responseString = await response.Content.ReadAsStringAsync();
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        JObject jsonResult = JObject.Parse(responseString);
+                        string urlContent = jsonResult["hits"][0]["url"].ToString();
+                        var name = jsonResult["hits"][0]["name"].ToString();
+                        //Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Found {name}"));
+                        var url = "https://stockx.com/api/products/" + urlContent + "?includes=market";
+                        shoeLookup.Url = url;
+
+                        var sizesString = split[1];
+                        var sizes = sizesString.Split(',');
+                        shoeLookup.Sizes = sizes;
+                        shoeLookups.Add(shoeLookup);
+                    }
+                    else
+                    {
+                        Console.WriteLine(responseString);
+                    }
+
+                } else if (line.Contains(' ') & line.Contains(',') && line.Contains("https://stockx.com/"))
                 {
                     var split = line.Split(' ');
 
@@ -125,17 +158,23 @@ namespace StockX
                     shoeLookup.Sizes = null;
                     shoeLookups.Add(shoeLookup);
                 }
-
-                //Console.WriteLine(String.Format($"URL: {shoeLookup.Url}\nSizes: {shoeLookup.Sizes.Length}\n"));
             }
 
             file.Close();
             if (shoeLookups.Count() == 0)
             {
-                Console.WriteLine("No URLs found in urls.txt");
+                Console.WriteLine("No URLs loaded from urls.txt");
                 return null;
+            } else
+            {
+                //Console.WriteLine(String.Format($"Loaded {shoeLookups.Count()} URLs/SKUs"));
+                foreach (ShoeLookup s in shoeLookups)
+                {
+                    Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Loaded {s.Url}"));
+                }
             }
-            //Console.ReadLine();
+            
+
             return shoeLookups;
         }
     
@@ -144,7 +183,7 @@ namespace StockX
             JObject loginData = new JObject(new JProperty("email", email), new JProperty("password", password));
             var content = new StringContent(loginData.ToString(), Encoding.UTF8, "application/json");
 
-            Console.WriteLine(String.Format($"{DateTime.Now.ToString("hh:mm:ss.fff")}: Logging into account {email}"));
+            Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Logging into account {email}"));
 
             var response = await client.PostAsync("https://stockx.com/api/login", content);
             var responseString = await response.Content.ReadAsStringAsync();
@@ -155,7 +194,7 @@ namespace StockX
                 client.DefaultRequestHeaders.Add("grails-user", encodedGrailsUser);
                 string jwt = response.Headers.GetValues("jwt-authorization").FirstOrDefault();
 
-                Console.WriteLine(String.Format($"{DateTime.Now.ToString("hh:mm:ss.fff")}: Login successful... skrt"));
+                Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Login successful... skrt"));
                 return true;
             }
             else
@@ -178,13 +217,10 @@ namespace StockX
                 var title = product["Product"]["title"];
                 CreateEmptyFile(title.ToString());
                 currentShoe = title.ToString();
-                Console.WriteLine(String.Format($"{DateTime.Now.ToString("hh:mm:ss.fff")}: Getting info for {title}"));
+                Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Getting info for {title}"));
 
                 foreach (var c in product["Product"]["children"])
                 {
-                    //Console.WriteLine(String.Format($""));
-                    //var sizeId = c.Path.Split('.').Last();
-
                     var market = c.First["market"];
                     var size = market["lowestAskSize"];
                     var lowestAsk = market["lowestAsk"];
@@ -204,21 +240,16 @@ namespace StockX
                             }
                         }
                     }
-
                 }
-
-                //Console.WriteLine(String.Format($"Size: {size} \tLowest Ask: {lowestAsk} \tHighest Bid: {highestBid} \tSize ID: {sizeID}"));
-            } else
+            }
+            else
             {
                 Console.WriteLine(responseString);
             }
             return ShoesList;
         }
-
         private static async Task CheckPayoutAsync(List<Shoe> input, HttpClient client)
         {
-            //List < KeyValuePair<string, int> > payouts = new List<KeyValuePair<string, int>>();
-            //var csv = new StringBuilder();
             foreach (Shoe shoe in input)
             {
                 try
@@ -234,18 +265,14 @@ namespace StockX
                         new JProperty("discountCodes", new JArray()));
                     var content = new StringContent(pricePayload.ToString(), Encoding.UTF8, "application/json");
 
-                    Console.WriteLine(String.Format($"{DateTime.Now.ToString("hh:mm:ss.fff")}: Sending request for size {shoe.size} ({shoe.sizeID})"));
-
                     var response = await client.PostAsync("https://stockx.com/api/pricing", content);
                     var responseString = await response.Content.ReadAsStringAsync();
+
                     if (response.IsSuccessStatusCode)
                     {
                         JObject jsonResult = JObject.Parse(responseString);
-
                         double payoutDouble = Math.Round(double.Parse(jsonResult["total"].ToString()), 2);
                         shoe.payout = payoutDouble.ToString();
-                        //var newline = string.Format($"{shoe.size},{shoe.payout}");
-                        //csv.Append(newline);
                     }
                     else
                     {
@@ -255,32 +282,30 @@ namespace StockX
                 {
                     Console.WriteLine(String.Format($"Exception occured: {e.Message}"));
                 }
-
-
             }
-            //File.WriteAllText(Directory.GetCurrentDirectory(), csv.ToString());
 
             foreach (Shoe s in input)
             {
+                if(!s.size.Contains('.'))
+                {
+                    Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Size: {s.size}   \tPayout: ${s.payout}"));
 
-                Console.WriteLine(String.Format($"Size: {s.size} \tHighest Bid: {s.highestBid} \tSize ID: {s.sizeID} \tPAYOUT: {s.payout}"));
+                } else
+                {
+                    Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Size: {s.size} \tPayout: ${s.payout}"));
+                }
             }
 
             using (StreamWriter file = new StreamWriter(String.Format($"{Directory.GetCurrentDirectory()}\\{currentShoe}",true)))
             {
-                //file.Close();
                 foreach (Shoe s in input)
                 {
                     file.WriteLine(String.Format($"{s.size}: {s.payout}"));
                 }
-
                 file.Close();
             }
-
-
-
+            //Console.WriteLine("\n");
         }
-
         private static void GetCookies(string url)
         {
             Uri uri = new Uri(url);
@@ -288,7 +313,6 @@ namespace StockX
             foreach (Cookie cookie in responseCookies)
                 Console.WriteLine(cookie.Name + ": " + cookie.Value);
         }
-
         private static string Base64Encode(string plainText)
         {
             var plainTextBytes = System.Text.Encoding.UTF8.GetBytes(plainText);
