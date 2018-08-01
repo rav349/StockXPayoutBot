@@ -69,11 +69,13 @@ namespace StockX
             handler.CookieContainer = cookies;
             handler.AllowAutoRedirect = true;
             HttpClient client = new HttpClient(handler);
-            //CreateEmptyFile("test");
 
-            //Console.ReadLine();
-            var email = "rav349@gmail.com";
-            var password = "120522760";
+            Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Enter StockX email"));
+            var email = Console.ReadLine();
+
+            Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Enter StockX password"));
+            var password = Console.ReadLine();
+
             List<ShoeLookup> shoeLookups = await GetUrlsAsync(client);
             bool LoggedIn = await LoginAsync(email, password, client);
             //bool LoggedIn = true;
