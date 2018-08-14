@@ -107,14 +107,23 @@ namespace StockX
                     var split = line.Split(' ');
                     var sku = split[0];
                     var lookupUrl = "https://xw7sbct9v6-dsn.algolia.net/1/indexes/products/query";
-                    JObject json = new JObject(new JProperty("params", "query={"+sku+"}&hitsPerPage=100"));
+                    JObject json = new JObject(new JProperty("params", "query={" + sku + "}&hitsPerPage=100"));
                     var content = new StringContent(json.ToString(), Encoding.UTF8, "application/json");
-                    client.DefaultRequestHeaders.Add("x-algolia-agent", "Algolia for vanilla JavaScript 3.27.1");
-                    client.DefaultRequestHeaders.Add("x-algolia-api-key", "6bfb5abee4dcd8cea8f0ca1ca085c2b3");
-                    client.DefaultRequestHeaders.Add("x-algolia-application-id", "XW7SBCT9V6");
-                    //client.DefaultRequestHeaders.Add("x-algolia-agent", "Algolia for vanilla JavaScript 3.27.1");
 
-                    //Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Searching for {sku}"));
+                    if (!client.DefaultRequestHeaders.Contains("x-algolia-agent"))
+                    {
+                        client.DefaultRequestHeaders.Add("x-algolia-agent", "Algolia for vanilla JavaScript 3.27.1");
+                    }
+
+                    if (!client.DefaultRequestHeaders.Contains("x-algolia-api-key"))
+                    {
+                        client.DefaultRequestHeaders.Add("x-algolia-api-key", "6bfb5abee4dcd8cea8f0ca1ca085c2b3");
+                    }
+
+                    if (!client.DefaultRequestHeaders.Contains("x-algolia-application-id"))
+                    {
+                        client.DefaultRequestHeaders.Add("x-algolia-application-id", "XW7SBCT9V6");
+                    }
 
                     var response = await client.PostAsync(lookupUrl, content);
                     var responseString = await response.Content.ReadAsStringAsync();
@@ -152,7 +161,21 @@ namespace StockX
                     var sizes = sizesString.Split(',');
                     shoeLookup.Sizes = sizes;
                     shoeLookups.Add(shoeLookup);
-                } else
+                } else if (line.Contains(' ') && line.Contains("https://stockx.com/"))
+                {
+                    var split = line.Split(' ');
+                    var url = split[0];
+                    url = url.Split(new[] { "https://stockx.com/" }, StringSplitOptions.None)[1];
+                    url = "https://stockx.com/api/products/" + url + "?includes=market";
+                    shoeLookup.Url = url;
+
+                    string[] sizes = new string[1];
+                    sizes[0] = split[1];
+                    shoeLookup.Sizes = sizes;
+                    shoeLookups.Add(shoeLookup);
+
+                }
+                else
                 {
                     line = line.Split(new[] { "https://stockx.com/" }, StringSplitOptions.None)[1];
                     line = "https://stockx.com/api/products/" + line + "?includes=market";
@@ -169,7 +192,6 @@ namespace StockX
                 return null;
             } else
             {
-                //Console.WriteLine(String.Format($"Loaded {shoeLookups.Count()} URLs/SKUs"));
                 foreach (ShoeLookup s in shoeLookups)
                 {
                     Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Loaded {s.Url}"));
