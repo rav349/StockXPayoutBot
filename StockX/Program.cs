@@ -20,7 +20,7 @@ namespace StockX
 
         class Shoe
         {
-            public Shoe(string size, string sizeID, string highestBid, string lowestAsk, string payout,string name)
+            public Shoe(string size, string sizeID, string highestBid, string lowestAsk, string payout, string name)
             {
                 this.size = size;
                 this.sizeID = sizeID;
@@ -172,7 +172,8 @@ namespace StockX
                         Console.WriteLine(responseString);
                     }
 
-                } else if (line.Contains(' ') & line.Contains(',') && line.Contains("https://stockx.com/"))
+                }
+                else if (line.Contains(' ') & line.Contains(',') && line.Contains("https://stockx.com/"))
                 {
                     var split = line.Split(' ');
 
@@ -186,7 +187,8 @@ namespace StockX
                     var sizes = sizesString.Split(',');
                     shoeLookup.Sizes = sizes;
                     shoeLookups.Add(shoeLookup);
-                } else if (line.Contains(' ') && line.Contains("https://stockx.com/"))
+                }
+                else if (line.Contains(' ') && line.Contains("https://stockx.com/"))
                 {
                     var split = line.Split(' ');
                     var url = split[0];
@@ -215,18 +217,19 @@ namespace StockX
             {
                 Console.WriteLine("No URLs loaded from urls.txt");
                 return null;
-            } else
+            }
+            else
             {
                 foreach (ShoeLookup s in shoeLookups)
                 {
                     Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Loaded {s.Url}"));
                 }
             }
-            
+
 
             return shoeLookups;
         }
-    
+
         private static async Task<bool> LoginAsync(string email, string password, HttpClient client)
         {
             JObject loginData = new JObject(new JProperty("email", email), new JProperty("password", password));
@@ -271,14 +274,15 @@ namespace StockX
                 foreach (var c in product["Product"]["children"])
                 {
                     var market = c.First["market"];
-                    var size = market["lowestAskSize"];
+                    var size = c.First["shoeSize"];
                     var lowestAsk = market["lowestAsk"];
                     var highestBid = market["highestBid"];
                     var sizeID = market["skuUuid"];
-                    if(sizes == null)
+                    if (sizes == null)
                     {
                         ShoesList.Add(new Shoe(size.ToString(), sizeID.ToString(), highestBid.ToString(), lowestAsk.ToString(), null, title.ToString()));
-                    } else
+                    }
+                    else
                     {
                         foreach (string s in sizes)
                         {
@@ -303,31 +307,40 @@ namespace StockX
             {
                 try
                 {
-                    JObject pricePayload = new JObject(
-                        new JProperty("context", "selling"),
-                        new JProperty("products",
-                        new JArray(
-                            new JObject(
-                                new JProperty("sku", shoe.sizeID),
-                                new JProperty("amount", Int32.Parse(shoe.highestBid)),
-                                new JProperty("quantity", 1)))),
-                        new JProperty("discountCodes", new JArray()));
-                    var content = new StringContent(pricePayload.ToString(), Encoding.UTF8, "application/json");
-
-                    var response = await client.PostAsync("https://stockx.com/api/pricing", content);
-                    var responseString = await response.Content.ReadAsStringAsync();
-
-                    if (response.IsSuccessStatusCode)
+                    if (int.Parse(shoe.highestBid) > 0)
                     {
-                        JObject jsonResult = JObject.Parse(responseString);
-                        double payoutDouble = Math.Round(double.Parse(jsonResult["total"].ToString()), 2);
-                        shoe.payout = payoutDouble.ToString();
-                    }
-                    else
+
+
+                        JObject pricePayload = new JObject(
+                            new JProperty("context", "selling"),
+                            new JProperty("products",
+                            new JArray(
+                                new JObject(
+                                    new JProperty("sku", shoe.sizeID),
+                                    new JProperty("amount", int.Parse(shoe.highestBid)),
+                                    new JProperty("quantity", 1)))),
+                            new JProperty("discountCodes", new JArray()));
+                        var content = new StringContent(pricePayload.ToString(), Encoding.UTF8, "application/json");
+
+                        var response = await client.PostAsync("https://stockx.com/api/pricing", content);
+                        var responseString = await response.Content.ReadAsStringAsync();
+
+                        if (response.IsSuccessStatusCode)
+                        {
+                            JObject jsonResult = JObject.Parse(responseString);
+                            double payoutDouble = Math.Round(double.Parse(jsonResult["total"].ToString()), 2);
+                            shoe.payout = payoutDouble.ToString();
+                        }
+                        else
+                        {
+                            Console.WriteLine(responseString);
+                        }
+                    } else
                     {
-                        Console.WriteLine(responseString);
+                        shoe.payout = "0";
                     }
-                } catch (Exception e)
+                }
+                catch (Exception e)
                 {
                     Console.WriteLine(String.Format($"Exception occured: {e.Message}"));
                 }
@@ -336,17 +349,24 @@ namespace StockX
 
             foreach (Shoe s in input)
             {
-                if(!s.size.Contains('.'))
+                if(s.payout != "0")
                 {
-                    Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Size: {s.size}   \tPayout: ${s.payout}"));
-
+                    if (!s.size.Contains('.'))
+                    {
+                        Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Size: {s.size}   \tPayout: ${s.payout}"));
+                    }
+                    else
+                    {
+                        Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Size: {s.size} \tPayout: ${s.payout}"));
+                    }
                 } else
                 {
-                    Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Size: {s.size} \tPayout: ${s.payout}"));
+                    Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Size: {s.size} \tNo bids for this size!"));
                 }
+
             }
 
-            using (StreamWriter file = new StreamWriter(String.Format($"{Directory.GetCurrentDirectory()}\\{currentShoe}",true)))
+            using (StreamWriter file = new StreamWriter(String.Format($"{Directory.GetCurrentDirectory()}\\{currentShoe}", true)))
             {
                 foreach (Shoe s in input)
                 {
