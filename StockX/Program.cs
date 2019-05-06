@@ -57,10 +57,19 @@ namespace StockX
 
         static void Main(string[] args)
         {
-            var prog = new Program();
-            prog.MainAsync().Wait();
-            Console.WriteLine("Done");
-            Console.ReadLine();
+            try
+            {
+                var prog = new Program();
+                prog.MainAsync().Wait();
+                Console.WriteLine("Done");
+                Console.ReadLine();
+            }
+            catch(Exception exception)
+            {
+                Console.WriteLine(exception);
+                Console.ReadLine();
+            }
+
         }
 
 
@@ -232,6 +241,7 @@ namespace StockX
 
         private static async Task<bool> LoginAsync(string email, string password, HttpClient client)
         {
+            client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.131 Safari/537.36");
             JObject loginData = new JObject(new JProperty("email", email), new JProperty("password", password));
             var content = new StringContent(loginData.ToString(), Encoding.UTF8, "application/json");
 
