@@ -277,7 +277,6 @@ namespace StockX
                 JObject product = JObject.Parse(responseString);
 
                 var title = product["Product"]["title"];
-                CreateEmptyFile(title.ToString());
                 currentShoe = title.ToString();
                 Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Getting info for {title}"));
 
@@ -296,11 +295,10 @@ namespace StockX
                     {
                         foreach (string s in sizes)
                         {
-                            if (size.ToString() == s)
+                            if (size.ToString().ToLower() == s || s.ToLower() == "os")
                             {
                                 ShoesList.Add(new Shoe(size.ToString(), sizeID.ToString(), highestBid.ToString(), lowestAsk.ToString(), null, title.ToString()));
-
-                            }
+                            } 
                         }
                     }
                 }
@@ -375,16 +373,6 @@ namespace StockX
                 }
 
             }
-
-            using (StreamWriter file = new StreamWriter(String.Format($"{Directory.GetCurrentDirectory()}\\{currentShoe}", true)))
-            {
-                foreach (Shoe s in input)
-                {
-                    file.WriteLine(String.Format($"{s.size}: {s.payout}"));
-                }
-                file.Close();
-            }
-            //Console.WriteLine("\n");
         }
         private static void GetCookies(string url)
         {
@@ -398,10 +386,5 @@ namespace StockX
             var plainTextBytes = System.Text.Encoding.UTF8.GetBytes(plainText);
             return System.Convert.ToBase64String(plainTextBytes);
         }
-        public static void CreateEmptyFile(string filename)
-        {
-            File.Create(filename).Dispose();
-        }
-
     }
 }
