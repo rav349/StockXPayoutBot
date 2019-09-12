@@ -13,49 +13,11 @@ namespace StockX
 {
     class Program
     {
-        private static CookieContainer cookies = new CookieContainer();
-        private static HttpClientHandler handler = new HttpClientHandler();
+        private static readonly CookieContainer Cookies = new CookieContainer();
+        private static readonly HttpClientHandler Handler = new HttpClientHandler();
         private static string currentShoe = "";
 
-
-        class Shoe
-        {
-            public Shoe(string size, string sizeID, string highestBid, string lowestAsk, string payout, string name)
-            {
-                this.size = size;
-                this.sizeID = sizeID;
-                this.highestBid = highestBid;
-                this.lowestAsk = lowestAsk;
-                this.payout = payout;
-                this.name = name;
-            }
-
-            public string size { get; set; }
-            public string sizeID { get; set; }
-            public string highestBid { get; set; }
-            public string lowestAsk { get; set; }
-            public string payout { get; set; }
-            public string name { get; set; }
-        }
-
-        class ShoeLookup
-        {
-            public ShoeLookup()
-            {
-            }
-
-            public ShoeLookup(string url, string[] sizes)
-            {
-                Url = url;
-                Sizes = sizes;
-
-            }
-
-            public string Url { get; set; }
-            public string[] Sizes { get; set; }
-        }
-
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
             try
             {
@@ -76,15 +38,14 @@ namespace StockX
 
         private async Task MainAsync()
         {
-            handler.CookieContainer = cookies;
-            handler.AllowAutoRedirect = true;
-            HttpClient client = new HttpClient(handler);
+            Handler.CookieContainer = Cookies;
+            Handler.AllowAutoRedirect = true;
+            HttpClient client = new HttpClient(Handler);
 
-            Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Enter StockX email"));
+            Console.WriteLine(String.Format($"[{DateTime.Now:hh:mm:ss.fff}] Enter StockX email"));
             var email = Console.ReadLine();
 
-            Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Enter StockX password"));
-            //var password = Console.ReadLine();
+            Console.WriteLine(String.Format($"[{DateTime.Now:hh:mm:ss.fff}] Enter StockX password"));
 
             string password = "";
             do
@@ -111,16 +72,14 @@ namespace StockX
             } while (true);
 
             List<ShoeLookup> shoeLookups = await GetUrlsAsync(client);
-            bool LoggedIn = await LoginAsync(email, password, client);
-            //bool LoggedIn = true;
-            if (LoggedIn)
+            bool loggedIn = await LoginAsync(email, password, client);
+            if (loggedIn)
             {
                 foreach (ShoeLookup shoeLookup in shoeLookups)
                 {
-                    var ShoesList = await GetProductInfo(shoeLookup.Url, shoeLookup.Sizes, client);
-                    await CheckPayoutAsync(ShoesList, client);
+                    var shoesList = await GetProductInfo(shoeLookup.Url, shoeLookup.Sizes, client);
+                    await CheckPayoutAsync(shoesList, client);
                 }
-
             }
         }
 
@@ -128,10 +87,10 @@ namespace StockX
         private static async Task<List<ShoeLookup>> GetUrlsAsync(HttpClient client)
         {
             List<ShoeLookup> shoeLookups = new List<ShoeLookup>();
-            string line = "";
+            string line;
             string accountsPath = Directory.GetCurrentDirectory() + "\\urls.txt";
             StreamReader file = new StreamReader(accountsPath);
-            Console.WriteLine(String.Format($"\n[{DateTime.Now.ToString("hh:mm:ss.fff")}] Found input file"));
+            Console.WriteLine(String.Format($"\n[{DateTime.Now:hh:mm:ss.fff}] Found input file"));
             while ((line = file.ReadLine()) != null)
             {
                 ShoeLookup shoeLookup = new ShoeLookup();
@@ -166,11 +125,8 @@ namespace StockX
                     {
                         JObject jsonResult = JObject.Parse(responseString);
                         string urlContent = jsonResult["hits"][0]["url"].ToString();
-                        var name = jsonResult["hits"][0]["name"].ToString();
-                        //Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Found {name}"));
                         var url = "https://stockx.com/api/products/" + urlContent + "?includes=market";
                         shoeLookup.Url = url;
-
                         var sizesString = split[1];
                         var sizes = sizesString.Split(',');
                         shoeLookup.Sizes = sizes;
@@ -209,7 +165,6 @@ namespace StockX
                     sizes[0] = split[1];
                     shoeLookup.Sizes = sizes;
                     shoeLookups.Add(shoeLookup);
-
                 }
                 else
                 {
@@ -222,7 +177,7 @@ namespace StockX
             }
 
             file.Close();
-            if (shoeLookups.Count() == 0)
+            if (!shoeLookups.Any())
             {
                 Console.WriteLine("No URLs loaded from urls.txt");
                 return null;
@@ -231,7 +186,7 @@ namespace StockX
             {
                 foreach (ShoeLookup s in shoeLookups)
                 {
-                    Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Loaded {s.Url}"));
+                    Console.WriteLine(string.Format($"[{DateTime.Now:hh:mm:ss.fff}] Loaded {s.Url}"));
                 }
             }
 
@@ -245,7 +200,7 @@ namespace StockX
             JObject loginData = new JObject(new JProperty("email", email), new JProperty("password", password));
             var content = new StringContent(loginData.ToString(), Encoding.UTF8, "application/json");
 
-            Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Logging into account {email}"));
+            Console.WriteLine(string.Format($"[{DateTime.Now:hh:mm:ss.fff}] Logging into account {email}"));
 
             var response = await client.PostAsync("https://stockx.com/api/login", content);
             var responseString = await response.Content.ReadAsStringAsync();
@@ -254,9 +209,9 @@ namespace StockX
             {
                 string encodedGrailsUser = Base64Encode(responseString);
                 client.DefaultRequestHeaders.Add("grails-user", encodedGrailsUser);
-                string jwt = response.Headers.GetValues("jwt-authorization").FirstOrDefault();
+                //response.Headers.GetValues("jwt-authorization").FirstOrDefault();
 
-                Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Login successful... skrt"));
+                Console.WriteLine(String.Format($"[{DateTime.Now:hh:mm:ss.fff}] Login successful"));
                 return true;
             }
             else
@@ -268,7 +223,7 @@ namespace StockX
 
         private static async Task<List<Shoe>> GetProductInfo(string url, string[] sizes, HttpClient client)
         {
-            List<Shoe> ShoesList = new List<Shoe>();
+            List<Shoe> shoesList = new List<Shoe>();
 
             var response = await client.GetAsync(url);
             var responseString = await response.Content.ReadAsStringAsync();
@@ -278,7 +233,7 @@ namespace StockX
 
                 var title = product["Product"]["title"];
                 currentShoe = title.ToString();
-                Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Getting info for {title}"));
+                Console.WriteLine(String.Format($"[{DateTime.Now:hh:mm:ss.fff}] Getting info for {title}"));
 
                 foreach (var c in product["Product"]["children"])
                 {
@@ -286,10 +241,10 @@ namespace StockX
                     var size = c.First["shoeSize"];
                     var lowestAsk = market["lowestAsk"];
                     var highestBid = market["highestBid"];
-                    var sizeID = market["skuUuid"];
+                    var sizeId = market["skuUuid"];
                     if (sizes == null)
                     {
-                        ShoesList.Add(new Shoe(size.ToString(), sizeID.ToString(), highestBid.ToString(), lowestAsk.ToString(), null, title.ToString()));
+                        shoesList.Add(new Shoe(size.ToString(), sizeId.ToString(), highestBid.ToString(), lowestAsk.ToString(), null, title.ToString()));
                     }
                     else
                     {
@@ -297,7 +252,7 @@ namespace StockX
                         {
                             if (size.ToString().ToLower() == s || s.ToLower() == "os")
                             {
-                                ShoesList.Add(new Shoe(size.ToString(), sizeID.ToString(), highestBid.ToString(), lowestAsk.ToString(), null, title.ToString()));
+                                shoesList.Add(new Shoe(size.ToString(), sizeId.ToString(), highestBid.ToString(), lowestAsk.ToString(), null, title.ToString()));
                             } 
                         }
                     }
@@ -307,7 +262,7 @@ namespace StockX
             {
                 Console.WriteLine(responseString);
             }
-            return ShoesList;
+            return shoesList;
         }
         private static async Task CheckPayoutAsync(List<Shoe> input, HttpClient client)
         {
@@ -350,7 +305,7 @@ namespace StockX
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine(String.Format($"Exception occured: {e.Message}"));
+                    Console.WriteLine(string.Format($"Exception occured: {e.Message}"));
                 }
                 Thread.Sleep(200);
             }
@@ -361,30 +316,31 @@ namespace StockX
                 {
                     if (!s.size.Contains('.'))
                     {
-                        Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Size: {s.size}   \tPayout: ${s.payout}"));
+                        Console.WriteLine(string.Format($"[{DateTime.Now:hh:mm:ss.fff}] Size: {s.size}   \tPayout: ${s.payout}"));
                     }
                     else
                     {
-                        Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Size: {s.size} \tPayout: ${s.payout}"));
+                        Console.WriteLine(string.Format($"[{DateTime.Now:hh:mm:ss.fff}] Size: {s.size} \tPayout: ${s.payout}"));
                     }
                 } else
                 {
-                    Console.WriteLine(String.Format($"[{DateTime.Now.ToString("hh:mm:ss.fff")}] Size: {s.size} \tNo bids for this size!"));
+                    Console.WriteLine(string.Format($"[{DateTime.Now:hh:mm:ss.fff}] Size: {s.size} \tNo bids for this size!"));
                 }
 
             }
         }
         private static void GetCookies(string url)
         {
-            Uri uri = new Uri(url);
-            IEnumerable<Cookie> responseCookies = cookies.GetCookies(uri).Cast<Cookie>();
-            foreach (Cookie cookie in responseCookies)
+            var uri = new Uri(url);
+            IEnumerable<Cookie> responseCookies = Cookies.GetCookies(uri).Cast<Cookie>();
+            foreach (var cookie in responseCookies)
                 Console.WriteLine(cookie.Name + ": " + cookie.Value);
         }
+
         private static string Base64Encode(string plainText)
         {
-            var plainTextBytes = System.Text.Encoding.UTF8.GetBytes(plainText);
-            return System.Convert.ToBase64String(plainTextBytes);
+            var plainTextBytes = Encoding.UTF8.GetBytes(plainText);
+            return Convert.ToBase64String(plainTextBytes);
         }
     }
 }
