@@ -1,3 +1,5 @@
+# StockX Payout Bot
+
 Simple console app which allows you to log into your StockX account and check the pay out, specific to your account, seller level and any current promotions on seller fees
 
 
