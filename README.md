@@ -21,3 +21,5 @@ https://stockx.com/bape-x-adidas-riddell-helmet-green os
 
 https://stockx.com/supreme-box-logo-crewneck-fw18-ash-grey xl
 
+You can also return the payout for all sizes of a shoe by not specifying a size, but I woukdn't recommend as this can cause errors and cause CloudFlare protection to kick in
+
