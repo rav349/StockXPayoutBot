@@ -29,3 +29,4 @@ https://stockx.com/supreme-box-logo-crewneck-fw18-ash-grey xl
 
 You can also return the payout for all sizes of a shoe by not specifying a size, but I wouldn’t recommend as this can cause errors and cause CloudFlare protection to kick in
 
+**Will probably make changes and clean up the code but I don't have the time atm**
