@@ -503,7 +503,7 @@ namespace StockX
         /// <param name="authResponse"></param>
         /// <param name="client"></param>
         /// <returns>Customer JSON string</returns>
-        private static async Task<string> GetCustomerJsonAsync(string authResponse, HttpClient client)
+        private static async Task<string>  GetCustomerJsonAsync(string authResponse, HttpClient client)
         {
             var htmlDoc = new HtmlDocument();
             htmlDoc.LoadHtml(authResponse);
@@ -546,9 +546,10 @@ namespace StockX
             var jsonString = "";
             foreach (var scripts in x)
             {
-                if (scripts.InnerHtml.Contains("window.preLoadedHomeProps"))
+                if (scripts.InnerHtml.Contains("window.preLoadedBaseProps"))
                 {
-                    jsonString = scripts.InnerHtml.Split(new string[] { "customer\":" }, StringSplitOptions.None)[1].Split(new string[] { "};" }, StringSplitOptions.None)[0];
+                    jsonString = scripts.InnerHtml.Split(new string[] {"customer\":"}, StringSplitOptions.None)[1];
+                    jsonString = jsonString.Split(new string[] { ",\"locale\"" }, StringSplitOptions.None)[0];
                 }
             }
 
